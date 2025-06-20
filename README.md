@@ -2,6 +2,25 @@
 
 A data validation and comparison platform built as a single Go binary with an embedded React frontend. CompareFlow helps you validate data consistency between different databases and data sources.
 
+## Documentation
+
+📚 **Complete documentation is available in the [docs/](docs/) folder:**
+
+### Getting Started
+- [🚀 Run Instructions](docs/RUN_INSTRUCTIONS.md) - How to build and run the application
+- [🛠️ Development Guide](docs/DEVELOPMENT_GUIDE.md) - Development setup and workflow  
+- [📦 Deployment Guide](docs/DEPLOYMENT_GUIDE.md) - Production deployment instructions
+- [🐳 Podman Quickstart](docs/PODMAN_QUICKSTART.md) - Container deployment with Podman
+
+### Technical Documentation  
+- [🏗️ Architecture](docs/ARCHITECTURE.md) - System architecture and design patterns
+- [⚙️ Technical Design](docs/TECHNICAL_DESIGN.md) - Detailed technical specifications
+- [📋 Functional Requirements](docs/FUNCTIONAL_REQUIREMENTS.md) - Feature requirements and specifications
+- [📖 API Reference](docs/API_REFERENCE.md) - REST API endpoints and usage
+
+### Reference
+- [📚 Documentation Index](docs/DOCUMENTATION_INDEX.md) - Complete documentation overview
+
 ## Features
 
 - **Multi-Database Support**: SQL Server, Databricks, and PostgreSQL with pluggable architecture for easy extension
@@ -16,55 +35,70 @@ A data validation and comparison platform built as a single Go binary with an em
 
 ### Prerequisites
 
-- Go 1.21 or higher
+- Go 1.23 or higher
 - Node.js 18+ and npm (for frontend development)
-- Podman or Docker (for PostgreSQL)
-- PostgreSQL 13+ (or use the provided container)
+- Podman (recommended) or Docker
+- PostgreSQL 15+ (or use the provided container)
 
 ### Development Setup
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/compareflow/compareflow.git
+   git clone <your-repo-url>
    cd compareflow
    ```
 
-2. **Start PostgreSQL with Podman**
+2. **Start PostgreSQL and run the application**
    ```bash
-   ./start-local.sh
+   ./start.sh
    ```
-
-3. **Create admin user (optional)**
-   ```bash
-   psql -h localhost -U compareflow -d compareflow -f scripts/create_admin_user.sql
-   # Default admin credentials: admin/admin123
-   ```
-
-4. **Run the application**
-   ```bash
-   go run cmd/compareflow/main.go
-   ```
+   This script will:
+   - Start PostgreSQL container with Podman
+   - Wait for database to be ready
+   - Create necessary tables
+   - Start the CompareFlow application
 
    The application will be available at http://localhost:8080
+   Default login: admin / admin123
+
+### Alternative Setup (Manual)
+
+1. **Install dependencies**
+   ```bash
+   make deps
+   ```
+
+2. **Start database manually**
+   ```bash
+   podman run -d \
+     --name compareflow-postgres \
+     -e POSTGRES_USER=compareflow \
+     -e POSTGRES_PASSWORD=compareflow123 \
+     -e POSTGRES_DB=compareflow \
+     -p 5432:5432 \
+     postgres:15
+   ```
+
+3. **Run the application**
+   ```bash
+   make run
+   ```
 
 ### Building for Production
 
-1. **Build frontend**
+1. **Build complete application (frontend + backend)**
    ```bash
-   cd frontend
-   npm install
-   npm run build
-   cp -r dist/* ../cmd/compareflow/web/dist/
+   make build-all
    ```
 
-2. **Build Go binary**
+2. **Create release builds for multiple platforms**
    ```bash
-   go build -o compareflow cmd/compareflow/main.go
+   make release
    ```
 
 3. **Run with custom database**
    ```bash
-   ./compareflow -db "postgresql://user:pass@host:5432/dbname?sslmode=require"
+   ./bin/compareflow -db "postgresql://user:pass@host:5432/dbname?sslmode=require"
    ```
 
 ## Configuration
@@ -186,24 +220,43 @@ Authorization: Bearer <token>
 ### Project Structure
 
 ```
-compareflow-go/
-├── cmd/
-│   └── compareflow/      # Main application entry point
+compareflow/
+├── cmd/compareflow/     # Main application entry point
 ├── internal/
-│   ├── api/             # HTTP handlers and routes
-│   ├── config/          # Configuration management
-│   ├── database/        # Database connection and migrations
-│   ├── models/          # Data models
-│   └── services/        # Business logic
-├── frontend/            # React application
+│   ├── api/            # HTTP handlers, middleware, and routes
+│   ├── config/         # Configuration management
+│   ├── connectors/     # Database connector framework
+│   ├── database/       # Database connection and migrations
+│   ├── models/         # Data models
+│   └── services/       # Business logic
+├── frontend/           # React application
 │   ├── src/
-│   │   ├── components/  # Reusable UI components
-│   │   ├── pages/       # Page components
-│   │   ├── services/    # API client services
-│   │   └── store/       # Redux store and slices
-│   └── dist/           # Built frontend assets
-├── scripts/            # Utility scripts
-└── migrations/         # Database migrations
+│   │   ├── components/ # Reusable UI components
+│   │   ├── pages/      # Page components
+│   │   ├── services/   # API client services
+│   │   ├── store/      # Redux store and slices
+│   │   └── types/      # TypeScript type definitions
+│   └── dist/          # Built frontend assets
+├── docs/              # Documentation
+├── scripts/           # Utility scripts
+├── migrations/        # Database migrations
+└── bin/              # Build outputs
+```
+
+### Available Make Commands
+
+```bash
+make deps          # Install Go dependencies
+make run           # Run the application in development mode
+make build         # Build the Go binary
+make build-all     # Build frontend and backend together
+make frontend      # Build frontend and copy to web/dist
+make test          # Run Go tests
+make clean         # Clean build artifacts
+make fmt           # Format Go code
+make lint          # Run linter (requires golangci-lint)
+make release       # Create release builds for multiple platforms
+make dev           # Run with hot reload (requires air)
 ```
 
 ### Frontend Development
@@ -212,22 +265,24 @@ For frontend development with hot reload:
 
 ```bash
 # Terminal 1: Run backend
-go run cmd/compareflow/main.go
+make run
 
 # Terminal 2: Run frontend dev server
 cd frontend
-npm run dev
+npm install
+npm start
 ```
 
 The frontend dev server will proxy API requests to the backend.
 
 ### Adding New Features
 
-1. **New API Endpoint**: Add handler in `internal/api/handlers/`
-2. **New Model**: Add to `internal/models/`
-3. **New Service**: Add to `internal/services/`
-4. **Frontend Page**: Add to `frontend/src/pages/`
-5. **Redux Slice**: Add to `frontend/src/store/slices/`
+1. **New Database Connector**: Add to `internal/connectors/`
+2. **New API Endpoint**: Add handler in `internal/api/handlers/`
+3. **New Model**: Add to `internal/models/`
+4. **New Service**: Add to `internal/services/`
+5. **Frontend Page**: Add to `frontend/src/pages/`
+6. **Redux Slice**: Add to `frontend/src/store/slices/`
 
 ## Deployment
 
@@ -276,16 +331,23 @@ CMD ["./compareflow"]
 1. Check PostgreSQL is running:
    ```bash
    podman ps
+   # Should show compareflow-postgres container
    ```
 
-2. Verify connection string:
+2. Check container logs:
    ```bash
-   psql "postgresql://compareflow:compareflow123@localhost:5432/compareflow?sslmode=disable"
+   podman logs compareflow-postgres
    ```
 
-3. Check logs:
+3. Verify connection string:
    ```bash
-   tail -f app.log
+   podman exec compareflow-postgres psql -U compareflow -d compareflow -c "SELECT 1;"
+   ```
+
+4. Restart database:
+   ```bash
+   ./stop.sh
+   ./start.sh
    ```
 
 ### Frontend Build Issues
@@ -307,34 +369,38 @@ CMD ["./compareflow"]
 2. Check token expiration
 3. Ensure CORS origins are configured
 
-## Migration Status
+## Current Status
 
-- [x] Basic Go project structure
-- [x] JWT authentication
-- [x] User management
-- [x] Connection CRUD operations
-- [x] Validation CRUD operations
-- [x] PostgreSQL integration with Podman
-- [x] Local development scripts
-- [x] Frontend embedding
-- [x] Connection testing implementation (SQL Server)
-- [x] Connection testing implementation (Databricks)
-- [ ] Validation engine
-- [ ] WebSocket support
-- [ ] Data streaming
-- [x] Proper password hashing (bcrypt)
-- [x] React frontend with Material-UI
-- [x] Redux state management
+### Completed Features
+- ✅ Go project structure with clean architecture
+- ✅ JWT authentication system
+- ✅ User management (registration, login)
+- ✅ Database connection management (CRUD)
+- ✅ Validation job management (CRUD)
+- ✅ Multi-database connector framework
+- ✅ Database connectors: SQL Server, PostgreSQL, Databricks
+- ✅ Connection testing and schema discovery
+- ✅ PostgreSQL integration with Podman
+- ✅ Development and deployment scripts
+- ✅ React frontend with TypeScript
+- ✅ Material-UI design system
+- ✅ Redux state management
+- ✅ Frontend asset embedding
 
-## Roadmap
+### In Progress
+- 🔄 Data validation engine implementation
+- 🔄 Validation execution and reporting
 
-- [ ] Implement data validation engine
-- [ ] Add more database connectors (MySQL, PostgreSQL, Snowflake)
-- [ ] WebSocket support for real-time updates
-- [ ] Scheduling system for automated validations
-- [ ] Email notifications
-- [ ] Export results to CSV/Excel
-- [ ] Data lineage visualization
+### Planned Features
+- 📋 WebSocket support for real-time updates
+- 📋 Scheduling system for automated validations
+- 📋 Email/Slack notifications
+- 📋 Export results to CSV/Excel/PDF
+- 📋 Data lineage visualization
+- 📋 Additional database connectors (MySQL, Snowflake, Oracle)
+- 📋 Advanced validation types (schema comparison, data profiling)
+- 📋 Role-based access control
+- 📋 Audit logging
 
 ## Contributing
 
